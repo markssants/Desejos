@@ -1,7 +1,7 @@
 # ♥ Desejos
 
 Lista pessoal de coisas que quero comprar — com foto, preço, quantidade, link e notas.
-A foto e os dados ficam salvos no Firebase, então não somem quando o anúncio sai do ar.
+Os dados ficam salvos no Firebase, então não somem quando o anúncio sai do ar.
 
 Stack: React + Vite · Firebase (Auth Google + Firestore) · deploy na Vercel.
 
@@ -44,6 +44,6 @@ git push -u origin main
 
 - Login com Google (cada conta vê só a própria lista)
 - Nome, link, loja (detectada pelo link), preço, quantidade, categoria, prioridade e notas
-- Foto por upload ou **colando um print** (Ctrl/⌘+V) — a imagem é comprimida e salva no Firestore
+- Foto pelo link de uma imagem já hospedada (com pré-visualização)
 - Total desejado, abas *Quero comprar* / *Comprados*, busca, filtro por categoria e ordenação
 - Funciona offline (cache local do Firestore) e tem tema escuro automático

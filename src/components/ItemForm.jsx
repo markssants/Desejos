@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { comprimirImagem, lojaDoLink } from '../utils';
+import { useEffect, useState } from 'react';
+import { lojaDoLink } from '../utils';
 
 const VAZIO = {
   nome: '', link: '', loja: '', preco: '', quantidade: 1,
@@ -10,7 +10,7 @@ export default function ItemForm({ inicial, categorias, onSalvar, onFechar }) {
   const [f, setF] = useState(() => ({ ...VAZIO, ...(inicial || {}) }));
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
-  const inputArquivo = useRef(null);
+  const [imgErro, setImgErro] = useState(false);
 
   const set = (campo) => (e) => setF((v) => ({ ...v, [campo]: e.target.value }));
 
@@ -19,26 +19,6 @@ export default function ItemForm({ inicial, categorias, onSalvar, onFechar }) {
     window.addEventListener('keydown', esc);
     return () => window.removeEventListener('keydown', esc);
   }, [onFechar]);
-
-  async function usarArquivo(arquivo) {
-    if (!arquivo?.type.startsWith('image/')) return;
-    try {
-      setErro('');
-      const dataUrl = await comprimirImagem(arquivo);
-      setF((v) => ({ ...v, imagem: dataUrl }));
-    } catch (e) {
-      setErro(e.message);
-    }
-  }
-
-  // Permite colar uma imagem (Ctrl/Cmd+V) direto no formulário
-  function aoColar(e) {
-    const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith('image/'));
-    if (item) {
-      e.preventDefault();
-      usarArquivo(item.getAsFile());
-    }
-  }
 
   function aoMudarLink(e) {
     const link = e.target.value;
@@ -68,11 +48,9 @@ export default function ItemForm({ inicial, categorias, onSalvar, onFechar }) {
     }
   }
 
-  const imagemEhArquivo = f.imagem.startsWith('data:');
-
   return (
     <div className="modal-fundo" onMouseDown={(e) => e.target === e.currentTarget && onFechar()}>
-      <form className="modal" onSubmit={enviar} onPaste={aoColar}>
+      <form className="modal" onSubmit={enviar}>
         <div className="modal-topo">
           <h2>{inicial?.id ? 'Editar desejo' : 'Novo desejo'}</h2>
           <button type="button" className="btn fantasma" onClick={onFechar} aria-label="Fechar">✕</button>
@@ -120,30 +98,28 @@ export default function ItemForm({ inicial, categorias, onSalvar, onFechar }) {
         </label>
 
         <div className="campo-imagem">
-          <span>Foto</span>
+          <label>Link da imagem
+            <input
+              type="url" value={f.imagem}
+              onChange={(e) => { setImgErro(false); set('imagem')(e); }}
+              placeholder="https://i.imgur.com/exemplo.jpg"
+            />
+          </label>
           {f.imagem && (
             <div className="preview">
-              <img src={f.imagem} alt="" />
-              <button type="button" className="btn fantasma" onClick={() => setF((v) => ({ ...v, imagem: '' }))}>
+              {imgErro ? (
+                <small className="erro">Não foi possível carregar a imagem desse link.</small>
+              ) : (
+                <img src={f.imagem} alt="" onError={() => setImgErro(true)} />
+              )}
+              <button
+                type="button" className="btn fantasma"
+                onClick={() => { setImgErro(false); setF((v) => ({ ...v, imagem: '' })); }}
+              >
                 Remover
               </button>
             </div>
           )}
-          <div className="linha">
-            <button type="button" className="btn" onClick={() => inputArquivo.current.click()}>
-              Enviar foto
-            </button>
-            {!imagemEhArquivo && (
-              <input value={f.imagem} onChange={set('imagem')} placeholder="…ou cole a URL da imagem" />
-            )}
-          </div>
-          <small className="muted">
-            Dica: tire um print do anúncio e cole aqui (Ctrl/⌘+V). A foto enviada fica salva mesmo se o anúncio sumir.
-          </small>
-          <input
-            ref={inputArquivo} type="file" accept="image/*" hidden
-            onChange={(e) => usarArquivo(e.target.files[0])}
-          />
         </div>
 
         <label>Notas

@@ -1,4 +1,5 @@
 import { moeda, PRIORIDADES } from '../utils';
+import Imagem from './Imagem.jsx';
 
 export default function ItemCard({ item, onEditar, onComprado, onExcluir }) {
   const qtd = Number(item.quantidade) || 1;
@@ -7,7 +8,7 @@ export default function ItemCard({ item, onEditar, onComprado, onExcluir }) {
   return (
     <li className={`card ${item.comprado ? 'comprado' : ''}`}>
       <div className="card-img" onClick={onEditar}>
-        {item.imagem ? <img src={item.imagem} alt="" loading="lazy" /> : <span>♥</span>}
+        {item.imagem ? <Imagem src={item.imagem} alt="" loading="lazy" /> : <span>♥</span>}
         {!item.comprado && (
           <span className={`tag p-${item.prioridade}`}>{PRIORIDADES[item.prioridade]?.label}</span>
         )}

@@ -7,6 +7,7 @@ import { auth, db, googleProvider, firebaseConfigurado } from './firebase';
 import { moeda, PRIORIDADES } from './utils';
 import ItemForm from './components/ItemForm.jsx';
 import ItemCard from './components/ItemCard.jsx';
+import Imagem from './components/Imagem.jsx';
 
 const SEM_CATEGORIA = 'Sem categoria';
 
@@ -197,7 +198,7 @@ export default function App() {
               <li key={g.nome}>
                 <button className="categoria" onClick={() => setCategoria(g.nome)}>
                   <div className={`mosaico n${g.fotos.length}`}>
-                    {g.fotos.length ? g.fotos.map((src, k) => <img key={k} src={src} alt="" loading="lazy" />) : <span>♥</span>}
+                    {g.fotos.length ? g.fotos.map((src, k) => <Imagem key={k} src={src} alt="" loading="lazy" />) : <span>♥</span>}
                   </div>
                   <div className="categoria-info">
                     <strong>{g.nome}</strong>

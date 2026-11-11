@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
 import { lojaDoLink } from '../utils';
+import Imagem from './Imagem.jsx';
 
 const VAZIO = {
   nome: '', link: '', loja: '', preco: '', quantidade: 1,
   imagem: '', categoria: '', prioridade: 'media', notas: '',
 };
+
+const pareceImagem = (url) =>
+  /^https?:\/\/\S+\.(jpe?g|png|webp|gif|avif)(\?\S*)?$/i.test(url) || /^https?:\/\/[^/]*mlstatic\.com\//i.test(url);
 
 export default function ItemForm({ inicial, categorias, onSalvar, onFechar }) {
   const [f, setF] = useState(() => ({ ...VAZIO, ...(inicial || {}) }));
@@ -21,8 +25,14 @@ export default function ItemForm({ inicial, categorias, onSalvar, onFechar }) {
   }, [onFechar]);
 
   function aoMudarLink(e) {
-    const link = e.target.value;
-    setF((v) => ({ ...v, link, loja: v.loja || lojaDoLink(link) }));
+    const link = e.target.value.trim();
+    // Se colaram o link de uma imagem no campo do produto, joga pro campo da foto
+    if (pareceImagem(link)) {
+      setImgErro(false);
+      setF((v) => ({ ...v, imagem: link, link: '' }));
+      return;
+    }
+    setF((v) => ({ ...v, link: e.target.value, loja: v.loja || lojaDoLink(link) }));
   }
 
   async function enviar(e) {
@@ -60,8 +70,8 @@ export default function ItemForm({ inicial, categorias, onSalvar, onFechar }) {
           <input autoFocus value={f.nome} onChange={set('nome')} placeholder="Ex: Faca do chef 8&quot;" />
         </label>
 
-        <label>Link
-          <input type="url" value={f.link} onChange={aoMudarLink} placeholder="https://…" />
+        <label>Link do produto
+          <input type="url" value={f.link} onChange={aoMudarLink} placeholder="https://www.mercadolivre.com.br/…" />
         </label>
 
         <div className="linha">
@@ -101,7 +111,7 @@ export default function ItemForm({ inicial, categorias, onSalvar, onFechar }) {
           <label>Link da imagem
             <input
               type="url" value={f.imagem}
-              onChange={(e) => { setImgErro(false); set('imagem')(e); }}
+              onChange={(e) => { setImgErro(false); setF((v) => ({ ...v, imagem: e.target.value.trim() })); }}
               placeholder="https://i.imgur.com/exemplo.jpg"
             />
           </label>
@@ -110,7 +120,7 @@ export default function ItemForm({ inicial, categorias, onSalvar, onFechar }) {
               {imgErro ? (
                 <small className="erro">Não foi possível carregar a imagem desse link.</small>
               ) : (
-                <img src={f.imagem} alt="" onError={() => setImgErro(true)} />
+                <Imagem src={f.imagem} alt="" onError={() => setImgErro(true)} />
               )}
               <button
                 type="button" className="btn fantasma"

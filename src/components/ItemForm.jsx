@@ -74,7 +74,7 @@ export default function ItemForm({ inicial, categorias, onSalvar, onFechar }) {
     <div className="modal-fundo" onMouseDown={(e) => e.target === e.currentTarget && onFechar()}>
       <form className="modal" onSubmit={enviar} onPaste={aoColar}>
         <div className="modal-topo">
-          <h2>{inicial ? 'Editar desejo' : 'Novo desejo'}</h2>
+          <h2>{inicial?.id ? 'Editar desejo' : 'Novo desejo'}</h2>
           <button type="button" className="btn fantasma" onClick={onFechar} aria-label="Fechar">✕</button>
         </div>
 

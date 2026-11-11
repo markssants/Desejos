@@ -8,6 +8,8 @@ import { moeda, PRIORIDADES } from './utils';
 import ItemForm from './components/ItemForm.jsx';
 import ItemCard from './components/ItemCard.jsx';
 
+const SEM_CATEGORIA = 'Sem categoria';
+
 export default function App() {
   const [user, setUser] = useState(undefined); // undefined = carregando
   const [itens, setItens] = useState([]);
@@ -15,7 +17,7 @@ export default function App() {
   const [busca, setBusca] = useState('');
   const [aba, setAba] = useState('quero'); // quero | comprados
   const [ordem, setOrdem] = useState('prioridade');
-  const [categoria, setCategoria] = useState('');
+  const [categoria, setCategoria] = useState(null); // null = tela de categorias
 
   useEffect(() => {
     if (!auth) return;
@@ -35,11 +37,38 @@ export default function App() {
     [itens]
   );
 
+  const daAba = useMemo(
+    () => itens.filter((i) => (aba === 'quero' ? !i.comprado : i.comprado)),
+    [itens, aba]
+  );
+
+  // Agrupa os itens da aba atual por categoria (para a tela inicial)
+  const grupos = useMemo(() => {
+    const mapa = new Map();
+    for (const i of daAba) {
+      const nome = i.categoria || SEM_CATEGORIA;
+      if (!mapa.has(nome)) mapa.set(nome, []);
+      mapa.get(nome).push(i);
+    }
+    return [...mapa.entries()]
+      .map(([nome, lista]) => ({
+        nome,
+        lista,
+        total: lista.reduce((s, i) => s + (Number(i.preco) || 0) * (Number(i.quantidade) || 1), 0),
+        fotos: lista.filter((i) => i.imagem).slice(0, 4).map((i) => i.imagem),
+      }))
+      .sort((a, b) =>
+        a.nome === SEM_CATEGORIA ? 1 : b.nome === SEM_CATEGORIA ? -1 : a.nome.localeCompare(b.nome, 'pt-BR')
+      );
+  }, [daAba]);
+
+  const buscando = busca.trim() !== '';
+  const mostrandoCategorias = categoria === null && !buscando;
+
   const visiveis = useMemo(() => {
     const termo = busca.trim().toLowerCase();
-    const lista = itens.filter((i) => {
-      if (aba === 'quero' ? i.comprado : !i.comprado) return false;
-      if (categoria && i.categoria !== categoria) return false;
+    const lista = daAba.filter((i) => {
+      if (categoria !== null && !buscando && (i.categoria || SEM_CATEGORIA) !== categoria) return false;
       if (!termo) return true;
       return [i.nome, i.loja, i.notas, i.categoria].some((c) => c?.toLowerCase().includes(termo));
     });
@@ -53,7 +82,7 @@ export default function App() {
       maior: (a, b) => total(b) - total(a),
     };
     return lista.sort(comparadores[ordem]);
-  }, [itens, busca, aba, ordem, categoria]);
+  }, [daAba, busca, buscando, ordem, categoria]);
 
   const resumo = useMemo(() => {
     const pendentes = itens.filter((i) => !i.comprado);
@@ -140,23 +169,49 @@ export default function App() {
           className="busca" type="search" placeholder="Buscar…"
           value={busca} onChange={(e) => setBusca(e.target.value)}
         />
-        <div className="filtros">
+        {!mostrandoCategorias && (
           <select value={ordem} onChange={(e) => setOrdem(e.target.value)}>
             <option value="prioridade">Prioridade</option>
             <option value="recentes">Mais recentes</option>
             <option value="menor">Menor preço</option>
             <option value="maior">Maior preço</option>
           </select>
-          {categorias.length > 0 && (
-            <select value={categoria} onChange={(e) => setCategoria(e.target.value)}>
-              <option value="">Todas categorias</option>
-              {categorias.map((c) => <option key={c}>{c}</option>)}
-            </select>
-          )}
-        </div>
+        )}
       </section>
 
-      {visiveis.length === 0 ? (
+      {categoria !== null && !buscando && (
+        <div className="trilha">
+          <button className="btn fantasma" onClick={() => setCategoria(null)}>← Categorias</button>
+          <h2>{categoria}</h2>
+        </div>
+      )}
+
+      {mostrandoCategorias ? (
+        grupos.length === 0 ? (
+          <p className="vazio muted">
+            {itens.length === 0 ? 'Nenhum desejo ainda. Toque em + para adicionar o primeiro!' : 'Nada por aqui.'}
+          </p>
+        ) : (
+          <ul className="grade">
+            {grupos.map((g) => (
+              <li key={g.nome}>
+                <button className="categoria" onClick={() => setCategoria(g.nome)}>
+                  <div className={`mosaico n${g.fotos.length}`}>
+                    {g.fotos.length ? g.fotos.map((src, k) => <img key={k} src={src} alt="" loading="lazy" />) : <span>♥</span>}
+                  </div>
+                  <div className="categoria-info">
+                    <strong>{g.nome}</strong>
+                    <span className="muted">
+                      {g.lista.length} {g.lista.length === 1 ? 'item' : 'itens'}
+                      {g.total > 0 && ` · ${moeda(g.total)}`}
+                    </span>
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )
+      ) : visiveis.length === 0 ? (
         <p className="vazio muted">
           {itens.length === 0 ? 'Nenhum desejo ainda. Toque em + para adicionar o primeiro!' : 'Nada por aqui.'}
         </p>
@@ -177,7 +232,11 @@ export default function App() {
 
       {editando && (
         <ItemForm
-          inicial={editando === 'novo' ? null : editando}
+          inicial={
+            editando === 'novo'
+              ? (categoria && categoria !== SEM_CATEGORIA ? { categoria } : null)
+              : editando
+          }
           categorias={categorias}
           onSalvar={salvar}
           onFechar={() => setEditando(null)}

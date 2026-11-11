@@ -204,3 +204,12 @@ textarea { resize: vertical; }
 .trilha { display: flex; align-items: center; gap: 8px; margin: -4px 0 14px; }
 .trilha h2 { margin: 0; font-size: 1.25rem; }
 .trilha .btn { padding-left: 6px; }
+
+.preview-info { display: grid; gap: 4px; justify-items: start; }
+.preview-info small { font-weight: 400; }
+.preview-carregando {
+  width: 90px; height: 90px; display: grid; place-items: center;
+  border: 1px solid var(--borda); border-radius: 8px; flex: none;
+}
+.preview img { flex: none; }
+.aviso { color: var(--media); }

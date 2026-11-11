@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
-import { lojaDoLink } from '../utils';
+import { useEffect, useRef, useState } from 'react';
+import { baixarImagem, comprimirImagem, lojaDoLink } from '../utils';
 import Imagem from './Imagem.jsx';
 
 const VAZIO = {
   nome: '', link: '', loja: '', preco: '', quantidade: 1,
-  imagem: '', categoria: '', prioridade: 'media', notas: '',
+  imagem: '', imagemOrigem: '', categoria: '', prioridade: 'media', notas: '',
 };
 
 const pareceImagem = (url) =>
@@ -15,6 +15,70 @@ export default function ItemForm({ inicial, categorias, onSalvar, onFechar }) {
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState('');
   const [imgErro, setImgErro] = useState(false);
+  // Link da imagem digitado; o app baixa uma cópia e guarda em f.imagem
+  const [linkImg, setLinkImg] = useState(() =>
+    inicial?.imagemOrigem || (/^https?:/i.test(inicial?.imagem || '') ? inicial.imagem : '')
+  );
+  const [statusImg, setStatusImg] = useState(''); // '' | baixando | ok | falhou | arquivo
+  const copiaDe = useRef(inicial?.imagem?.startsWith('data:') ? inicial.imagemOrigem || null : null);
+  const inputArquivo = useRef(null);
+
+  // Sempre que o link da imagem muda, baixa e salva uma cópia
+  useEffect(() => {
+    const url = linkImg.trim();
+    if (!/^https?:\/\/\S+$/i.test(url)) return;
+    if (url === copiaDe.current) return; // já temos a cópia desse link
+    let cancelado = false;
+    setStatusImg('baixando');
+    setImgErro(false);
+    const t = setTimeout(async () => {
+      try {
+        const data = await baixarImagem(url);
+        if (cancelado) return;
+        copiaDe.current = url;
+        setF((v) => ({ ...v, imagem: data, imagemOrigem: url }));
+        setStatusImg('ok');
+      } catch {
+        if (cancelado) return;
+        // Não deu pra baixar: guarda só o link
+        setF((v) => ({ ...v, imagem: url, imagemOrigem: url }));
+        setStatusImg('falhou');
+      }
+    }, 400);
+    return () => { cancelado = true; clearTimeout(t); };
+  }, [linkImg]);
+
+  async function usarArquivo(arquivo) {
+    if (!arquivo?.type?.startsWith('image/')) return;
+    try {
+      setErro('');
+      const data = await comprimirImagem(arquivo);
+      copiaDe.current = null;
+      setLinkImg('');
+      setImgErro(false);
+      setF((v) => ({ ...v, imagem: data, imagemOrigem: '' }));
+      setStatusImg('arquivo');
+    } catch (e) {
+      setErro(e.message);
+    }
+  }
+
+  // Colar um print (Ctrl/⌘+V) em qualquer lugar do formulário
+  function aoColar(e) {
+    const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith('image/'));
+    if (item) {
+      e.preventDefault();
+      usarArquivo(item.getAsFile());
+    }
+  }
+
+  function removerImagem() {
+    copiaDe.current = null;
+    setLinkImg('');
+    setImgErro(false);
+    setStatusImg('');
+    setF((v) => ({ ...v, imagem: '', imagemOrigem: '' }));
+  }
 
   const set = (campo) => (e) => setF((v) => ({ ...v, [campo]: e.target.value }));
 
@@ -28,8 +92,8 @@ export default function ItemForm({ inicial, categorias, onSalvar, onFechar }) {
     const link = e.target.value.trim();
     // Se colaram o link de uma imagem no campo do produto, joga pro campo da foto
     if (pareceImagem(link)) {
-      setImgErro(false);
-      setF((v) => ({ ...v, imagem: link, link: '' }));
+      setLinkImg(link);
+      setF((v) => ({ ...v, link: '' }));
       return;
     }
     setF((v) => ({ ...v, link: e.target.value, loja: v.loja || lojaDoLink(link) }));
@@ -48,6 +112,7 @@ export default function ItemForm({ inicial, categorias, onSalvar, onFechar }) {
         preco: f.preco === '' ? null : Number(String(f.preco).replace(',', '.')),
         quantidade: Math.max(1, Number(f.quantidade) || 1),
         imagem: f.imagem.trim(),
+        imagemOrigem: f.imagemOrigem || '',
         categoria: f.categoria.trim(),
         prioridade: f.prioridade,
         notas: f.notas.trim(),
@@ -60,7 +125,7 @@ export default function ItemForm({ inicial, categorias, onSalvar, onFechar }) {
 
   return (
     <div className="modal-fundo" onMouseDown={(e) => e.target === e.currentTarget && onFechar()}>
-      <form className="modal" onSubmit={enviar}>
+      <form className="modal" onSubmit={enviar} onPaste={aoColar}>
         <div className="modal-topo">
           <h2>{inicial?.id ? 'Editar desejo' : 'Novo desejo'}</h2>
           <button type="button" className="btn fantasma" onClick={onFechar} aria-label="Fechar">✕</button>
@@ -108,27 +173,47 @@ export default function ItemForm({ inicial, categorias, onSalvar, onFechar }) {
         </label>
 
         <div className="campo-imagem">
-          <label>Link da imagem
-            <input
-              type="url" value={f.imagem}
-              onChange={(e) => { setImgErro(false); setF((v) => ({ ...v, imagem: e.target.value.trim() })); }}
-              placeholder="https://i.imgur.com/exemplo.jpg"
-            />
+          <label>Foto
+            <div className="linha">
+              <input
+                type="url" value={linkImg}
+                onChange={(e) => setLinkImg(e.target.value.trim())}
+                placeholder="Cole o link da imagem…"
+              />
+              <button type="button" className="btn" onClick={() => inputArquivo.current.click()}>
+                Enviar arquivo
+              </button>
+            </div>
           </label>
-          {f.imagem && (
+          <input
+            ref={inputArquivo} type="file" accept="image/*" hidden
+            onChange={(e) => { usarArquivo(e.target.files[0]); e.target.value = ''; }}
+          />
+          {(f.imagem || statusImg === 'baixando') && (
             <div className="preview">
-              {imgErro ? (
+              {statusImg === 'baixando' ? (
+                <div className="preview-carregando"><div className="spinner" /></div>
+              ) : imgErro ? (
                 <small className="erro">Não foi possível carregar a imagem desse link.</small>
               ) : (
                 <Imagem src={f.imagem} alt="" onError={() => setImgErro(true)} />
               )}
-              <button
-                type="button" className="btn fantasma"
-                onClick={() => { setImgErro(false); setF((v) => ({ ...v, imagem: '' })); }}
-              >
-                Remover
-              </button>
+              <div className="preview-info">
+                <small className={statusImg === 'falhou' ? 'aviso' : 'muted'}>
+                  {{
+                    baixando: 'Salvando uma cópia da imagem…',
+                    ok: '✓ Cópia salva — não some mesmo se o anúncio sair do ar.',
+                    arquivo: '✓ Imagem salva.',
+                    falhou: 'Não deu pra salvar uma cópia; vou guardar só o link.',
+                  }[statusImg] ||
+                    (f.imagem.startsWith('data:') ? '✓ Cópia salva.' : 'Só o link está salvo.')}
+                </small>
+                <button type="button" className="btn fantasma" onClick={removerImagem}>Remover</button>
+              </div>
             </div>
+          )}
+          {!f.imagem && statusImg !== 'baixando' && (
+            <small className="muted">Dica: você também pode colar um print aqui com Ctrl/⌘+V.</small>
           )}
         </div>
 
@@ -140,8 +225,8 @@ export default function ItemForm({ inicial, categorias, onSalvar, onFechar }) {
 
         <div className="modal-acoes">
           <button type="button" className="btn" onClick={onFechar}>Cancelar</button>
-          <button type="submit" className="btn primario" disabled={salvando}>
-            {salvando ? 'Salvando…' : 'Salvar'}
+          <button type="submit" className="btn primario" disabled={salvando || statusImg === 'baixando'}>
+            {salvando ? 'Salvando…' : statusImg === 'baixando' ? 'Baixando imagem…' : 'Salvar'}
           </button>
         </div>
       </form>

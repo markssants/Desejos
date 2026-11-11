@@ -85,11 +85,14 @@ export default function App() {
     return lista.sort(comparadores[ordem]);
   }, [daAba, busca, buscando, ordem, categoria]);
 
+  // Dentro de uma categoria, o resumo mostra só os números dela
+  const naCategoria = categoria !== null && !buscando;
   const resumo = useMemo(() => {
-    const pendentes = itens.filter((i) => !i.comprado);
+    const base = naCategoria ? itens.filter((i) => (i.categoria || SEM_CATEGORIA) === categoria) : itens;
+    const pendentes = base.filter((i) => !i.comprado);
     const total = pendentes.reduce((s, i) => s + (Number(i.preco) || 0) * (Number(i.quantidade) || 1), 0);
-    return { qtd: pendentes.length, total, comprados: itens.length - pendentes.length };
-  }, [itens]);
+    return { qtd: pendentes.length, total, comprados: base.length - pendentes.length };
+  }, [itens, categoria, naCategoria]);
 
   const ref = (id) => doc(db, 'users', user.uid, 'desejos', id);
 
@@ -157,7 +160,7 @@ export default function App() {
 
       <section className="resumo">
         <div><span className="muted">Na lista</span><strong>{resumo.qtd}</strong></div>
-        <div><span className="muted">Total desejado</span><strong>{moeda(resumo.total)}</strong></div>
+        <div><span className="muted">{naCategoria ? `Total em ${categoria}` : 'Total desejado'}</span><strong>{moeda(resumo.total)}</strong></div>
         <div><span className="muted">Já comprados</span><strong>{resumo.comprados}</strong></div>
       </section>
 
